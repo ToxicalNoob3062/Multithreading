@@ -1,9 +1,8 @@
 package main
 
 import (
-	"time"
-
 	"github.com/fatih/color"
+	"time"
 )
 
 type BarberShop struct {
