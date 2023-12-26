@@ -49,6 +49,8 @@ func main() {
 	}
 
 	//setup mail
+	app.Mailer = app.createMail()
+	go app.listenForMail()
 
 	//listen for stop signals and shut down gracefully
 	go app.listenForShutDown()
@@ -156,6 +158,31 @@ func (app *Config) shutdown() {
 	//wait for all goroutines to finish (waitGroup)
 	app.Wait.Wait()
 
+	//Done with the application
+	app.Mailer.DoneChan <- true
+
 	//close error log
-	app.InfoLog.Println("Server gracefully shutdown!")
+	app.InfoLog.Println("Server gracefully shutdown! && closing channels!!...")
+
+	//close channels
+	close(app.Mailer.Mailerchan)
+	close(app.Mailer.Errorchan)
+	close(app.Mailer.DoneChan)
+
+}
+
+func (app *Config) createMail() Mail {
+	mail := Mail{
+		Domain:      "localhost",
+		Host:        "localhost",
+		Port:        1025,
+		Encryption:  "none",
+		FromAddress: "info@mycompany.com",
+		FromName:    "Company",
+		Errorchan:   make(chan error),
+		Mailerchan:  make(chan Message, 100),
+		DoneChan:    make(chan bool),
+	}
+
+	return mail
 }
