@@ -9,9 +9,14 @@ build:
 	@echo "Built!"
 
 ## run: builds and runs the application
-run: build
+run-back: build
 	@echo "Starting..."
 	@env DSN=${DSN} REDIS=${REDIS} nohup ./${BINARY_NAME} >/dev/null 2>&1 &
+	@echo "Started!"
+
+run-fore: build
+	@echo "Starting..."
+	@env DSN=${DSN} REDIS=${REDIS} ./${BINARY_NAME} &
 	@echo "Started!"
 
 ## clean: runs go clean and deletes binaries
@@ -22,7 +27,7 @@ clean:
 	@echo "Cleaned!"
 
 ## start: an alias to run
-start: run
+start: run-fore
 
 ## stop: stops the running application
 stop:

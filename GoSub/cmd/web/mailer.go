@@ -27,14 +27,15 @@ type Mail struct {
 }
 
 type Message struct {
-	From        string
-	FromName    string
-	To          string
-	Subject     string
-	Attachments []string
-	Data        any
-	DataMap     map[string]interface{}
-	Template    string
+	From           string
+	FromName       string
+	To             string
+	Subject        string
+	Attachments    []string
+	AttachmentsMap map[string]string
+	Data           any
+	DataMap        map[string]interface{}
+	Template       string
 }
 
 // a function to listen for messages in the Mailer channel
@@ -46,6 +47,7 @@ func (app *Config) listenForMail() {
 		case err := <-app.Mailer.Errorchan:
 			app.ErrorLog.Println(err)
 		case <-app.Mailer.DoneChan:
+			return
 		}
 	}
 }
@@ -66,11 +68,21 @@ func (m *Mail) sendMail(msg Message, errorChan chan error) {
 		msg.FromName = m.FromName
 	}
 
-	data := map[string]any{
-		"message": msg.Data,
+	if msg.AttachmentsMap == nil {
+		msg.AttachmentsMap = make(map[string]string)
 	}
 
-	msg.DataMap = data
+	// data := map[string]any{
+	// 	"message": msg.Data,
+	// }
+
+	if len(msg.DataMap) == 0 {
+		msg.DataMap = make(map[string]interface{})
+	}
+
+	msg.DataMap["message"] = msg.Data
+
+	// msg.DataMap = data
 
 	//build html mail
 	formattedMesage, err := m.buildHTMLMessage(msg)
@@ -101,15 +113,23 @@ func (m *Mail) sendMail(msg Message, errorChan chan error) {
 		errorChan <- err
 		return
 	}
-	defer smtpClient.Close()
+	defer smtpClient.Close() //for this maybe we are encountring a problem
 
 	email := mail.NewMSG()
 	email.SetFrom(msg.From).AddTo(msg.To).SetSubject(msg.Subject)
 	email.SetBody(mail.TextHTML, formattedMesage)
 	email.AddAlternative(mail.TextPlain, plainMesage)
 
-	for _, attachment := range msg.Attachments {
-		email.AddAttachment(attachment)
+	if len(msg.Attachments) > 0 {
+		for _, x := range msg.Attachments {
+			email.AddAttachment(x)
+		}
+	}
+
+	if len(msg.AttachmentsMap) > 0 {
+		for name, path := range msg.AttachmentsMap {
+			email.AddAttachment(path, name)
+		}
 	}
 
 	err = email.Send(smtpClient)
@@ -148,8 +168,8 @@ func (m *Mail) buildHTMLMessage(msg Message) (string, error) {
 
 func (m *Mail) inlineCSS(s string) (string, error) {
 	options := premailer.Options{
-		RemoveClasses:     true,
-		CssToAttributes:   true,
+		RemoveClasses:     false,
+		CssToAttributes:   false,
 		KeepBangImportant: true,
 	}
 
@@ -193,9 +213,9 @@ func (m *Mail) buildTextMessage(msg Message) (string, error) {
 
 func (m *Mail) getEncryption(e string) mail.Encryption {
 	switch e {
-	case "SSL":
+	case "ssl":
 		return mail.EncryptionSSLTLS
-	case "TLS":
+	case "tls":
 		return mail.EncryptionSTARTTLS
 	case "none":
 		return mail.EncryptionNone
