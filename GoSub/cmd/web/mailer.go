@@ -15,8 +15,8 @@ type Mail struct {
 	Domain      string
 	Host        string
 	Port        int
-	Username    string
-	Password    string
+	Username    string //not needed for mailhog
+	Password    string //not needed for mailhog
 	Encryption  string
 	FromAddress string
 	FromName    string
@@ -31,9 +31,8 @@ type Message struct {
 	FromName       string
 	To             string
 	Subject        string
-	Attachments    []string
 	AttachmentsMap map[string]string
-	Data           any
+	Data           any //we will reassign it to DataMap after receiving a msg.Data property
 	DataMap        map[string]interface{}
 	Template       string
 }
@@ -72,17 +71,11 @@ func (m *Mail) sendMail(msg Message, errorChan chan error) {
 		msg.AttachmentsMap = make(map[string]string)
 	}
 
-	// data := map[string]any{
-	// 	"message": msg.Data,
-	// }
-
 	if len(msg.DataMap) == 0 {
 		msg.DataMap = make(map[string]interface{})
 	}
 
 	msg.DataMap["message"] = msg.Data
-
-	// msg.DataMap = data
 
 	//build html mail
 	formattedMesage, err := m.buildHTMLMessage(msg)
@@ -98,6 +91,7 @@ func (m *Mail) sendMail(msg Message, errorChan chan error) {
 		return
 	}
 
+	//configure smtp server connection settings from Mail server type
 	server := mail.NewSMTPClient()
 	server.Host = m.Host
 	server.Port = m.Port
@@ -108,23 +102,21 @@ func (m *Mail) sendMail(msg Message, errorChan chan error) {
 	server.ConnectTimeout = 10 * time.Second
 	server.SendTimeout = 10 * time.Second
 
+	//get your smtp client by connecting to the server
 	smtpClient, err := server.Connect()
 	if err != nil {
 		errorChan <- err
 		return
 	}
-	defer smtpClient.Close() //for this maybe we are encountring a problem
+	defer smtpClient.Close()
 
+	//create email message
 	email := mail.NewMSG()
+
+	//set from, to, subject and body from our Message type or email type of mail package
 	email.SetFrom(msg.From).AddTo(msg.To).SetSubject(msg.Subject)
 	email.SetBody(mail.TextHTML, formattedMesage)
 	email.AddAlternative(mail.TextPlain, plainMesage)
-
-	if len(msg.Attachments) > 0 {
-		for _, x := range msg.Attachments {
-			email.AddAttachment(x)
-		}
-	}
 
 	if len(msg.AttachmentsMap) > 0 {
 		for name, path := range msg.AttachmentsMap {
@@ -132,6 +124,7 @@ func (m *Mail) sendMail(msg Message, errorChan chan error) {
 		}
 	}
 
+	//send your mail via smtp client
 	err = email.Send(smtpClient)
 	if err != nil {
 		errorChan <- err

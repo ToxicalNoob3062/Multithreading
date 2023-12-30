@@ -34,6 +34,8 @@ func main() {
 	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
 	//create channels
+	errorChan := make(chan error)
+	errorChanDone := make(chan bool)
 
 	//create waitGroups
 	wg := &sync.WaitGroup{}
@@ -46,8 +48,8 @@ func main() {
 		InfoLog:       infoLog,
 		ErrorLog:      errorLog,
 		Models:        data.New(db),
-		ErrorChan:     make(chan error),
-		ErrorChanDone: make(chan bool),
+		ErrorChan:     errorChan,
+		ErrorChanDone: errorChanDone,
 	}
 
 	//setup mail
@@ -86,7 +88,6 @@ func (app *Config) spinServer() {
 	if err != nil {
 		app.ErrorLog.Fatal(err)
 	}
-
 }
 
 // For postgress DB!!

@@ -23,7 +23,7 @@ func (app *Config) LoginPage(w http.ResponseWriter, r *http.Request) {
 func (app *Config) PostLoginPage(w http.ResponseWriter, r *http.Request) {
 	_ = app.Session.RenewToken(r.Context())
 
-	//pase form data
+	//parse form data
 	err := r.ParseForm()
 	if err != nil {
 		app.ErrorLog.Println(err)
@@ -57,6 +57,13 @@ func (app *Config) PostLoginPage(w http.ResponseWriter, r *http.Request) {
 		}
 		app.sendEmail(msg)
 		app.Session.Put(r.Context(), "error", "Wrong password!!")
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	//check if user is active
+	if user.Active == 0 {
+		app.Session.Put(r.Context(), "error", "Account not activated!!")
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
@@ -106,7 +113,6 @@ func (app *Config) PostRegisterPage(w http.ResponseWriter, r *http.Request) {
 	//send activation email
 	url := fmt.Sprintf("http://localhost:8000/activate?email=%s", user.Email)
 	signedUrl := GenerateTokenFromString(url)
-	app.InfoLog.Println(signedUrl)
 
 	//make email
 	msg := Message{
@@ -128,8 +134,8 @@ func (app *Config) PostRegisterPage(w http.ResponseWriter, r *http.Request) {
 
 func (app *Config) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	//valid url token
-	url := r.RequestURI
-	testUrl := fmt.Sprintf("http://localhost:8000%s", url)
+	uri := r.RequestURI
+	testUrl := fmt.Sprintf("http://localhost:8000%s", uri)
 	okay := VerifyToken(testUrl)
 	if !okay {
 		app.Session.Put(r.Context(), "error", "Invalid token")
@@ -251,6 +257,23 @@ func (app *Config) SubscribeToPlan(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/members/plans", http.StatusSeeOther)
 }
 
+func (app *Config) ChooseSubscription(w http.ResponseWriter, r *http.Request) {
+	plans, err := app.Models.Plan.GetAll()
+	if err != nil {
+		app.ErrorLog.Println(err)
+		return
+	}
+
+	dataMap := make(map[string]any)
+	dataMap["plans"] = plans
+
+	app.render(w, r, "plans.page.gohtml", &TemplateData{
+		Data: dataMap,
+	})
+}
+
+///////////////////////////////UTILITIES///////////////////////////////////////
+
 func (app *Config) generateManual(user data.User, plan *data.Plan) *gofpdf.Fpdf {
 	pdf := gofpdf.New("P", "mm", "Letter", "")
 	pdf.SetMargins(10, 13, 10)
@@ -275,19 +298,4 @@ func (app *Config) generateManual(user data.User, plan *data.Plan) *gofpdf.Fpdf 
 
 func (app *Config) getInvoice(user data.User, plan *data.Plan) (string, error) {
 	return plan.PlanAmountFormatted, nil
-}
-
-func (app *Config) ChooseSubscription(w http.ResponseWriter, r *http.Request) {
-	plans, err := app.Models.Plan.GetAll()
-	if err != nil {
-		app.ErrorLog.Println(err)
-		return
-	}
-
-	dataMap := make(map[string]any)
-	dataMap["plans"] = plans
-
-	app.render(w, r, "plans.page.gohtml", &TemplateData{
-		Data: dataMap,
-	})
 }

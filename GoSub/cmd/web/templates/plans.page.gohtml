@@ -24,7 +24,7 @@
                                     {{if and ($user.Plan) (eq $user.Plan.ID .ID)}}
                                         <strong>Current Plan</strong>
                                     {{else}}
-                                    <a class="btn btn-primary btn-sm" href="#!" onclick="selectPlan({{.ID}})">Select Plan</a>
+                                    <a class="btn btn-primary btn-sm" href="#!" onclick="selectPlan({{.ID}}, '{{.PlanName}}')">Select Plan</a>
                                     {{end}}
                                 </td>
                             </tr>
